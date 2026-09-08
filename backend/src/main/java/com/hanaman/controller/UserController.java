@@ -63,14 +63,28 @@ public class UserController {
         int rollingCount = rollingStreakService.getRollingSuccessCount(userId, today);
 
         // 지난주 WeeklyGoal이 있으면(=2주차 이상이면) 목표 조정 안내에 쓸 정보를 같이 내려준다.
+        // (같은 사이클 안에서만 비교 — 사이클이 막 연장된 직후엔 "지난주"가 없는 게 맞다)
         WeeklyGoal previousWeek = active.getCurrentWeek() > 1
-                ? weeklyGoalRepository.findByUserExerciseAndWeekNumber(active, active.getCurrentWeek() - 1).orElse(null)
+                ? weeklyGoalRepository.findByUserExerciseAndCycleNumberAndWeekNumber(
+                        active, active.getCycleNumber(), active.getCurrentWeek() - 1).orElse(null)
                 : null;
 
         WeeklyGoal currentWeekGoal = weeklyGoalRepository
-                .findByUserExerciseAndWeekNumber(active, active.getCurrentWeek())
+                .findByUserExerciseAndCycleNumberAndWeekNumber(active, active.getCycleNumber(), active.getCurrentWeek())
                 .orElse(null);
         String notificationMessage = notificationService.buildTodayNotification(active, currentWeekGoal, today);
+        String recordMessage = notificationService.buildRollingStreakRecordMessage(user, rollingCount, today);
+
+        // 연장(EXTENDED)은 사용자가 결정할 게 없는 케이스라, 블로킹 화면 대신 여기서 바로 확인 처리하고
+        // 오늘의 미션 화면에 배너로 한 번만 보여준다. (마스터는 다음 동작 선택이 필요해서 별도로 블로킹 처리 — getPendingCycleSummary 참고)
+        CycleSummaryResponse extensionNotice = cycleSummaryRepository
+                .findFirstByUserAndAcknowledgedFalseAndOutcomeOrderByCycleEndDateDesc(user, CycleSummary.Outcome.EXTENDED)
+                .map(s -> {
+                    s.setAcknowledged(true);
+                    cycleSummaryRepository.save(s);
+                    return toCycleSummaryResponse(s);
+                })
+                .orElse(null);
 
         return ResponseEntity.ok(TodayMissionResponse.builder()
                 .userExerciseId(active.getId())
@@ -84,6 +98,8 @@ public class UserController {
                 .previousWeekTarget(previousWeek != null ? previousWeek.getTargetValue() : null)
                 .previousWeekSuccessDays(previousWeek != null ? previousWeek.getSuccessDays() : null)
                 .notificationMessage(notificationMessage)
+                .rollingStreakRecordMessage(recordMessage)
+                .extensionNotice(extensionNotice)
                 .build());
     }
 
@@ -133,20 +149,29 @@ public class UserController {
         return ResponseEntity.ok().build();
     }
 
-    /** 확인하지 않은 사이클 요약이 있으면 반환 — 없으면 204. 프론트는 앱 진입 시 이걸 먼저 확인한다. */
+    /**
+     * 확인하지 않은 "마스터" 요약이 있으면 반환 — 없으면 204.
+     * 마스터는 다음 동작을 골라야 하는 진짜 결정이 있어서 블로킹 화면으로 보여준다.
+     * 연장(EXTENDED)은 여기서 다루지 않는다 — getTodayMission이 자동으로 확인 처리하고 배너로 보여준다.
+     */
     @GetMapping("/{userId}/cycle-summary")
     public ResponseEntity<CycleSummaryResponse> getPendingCycleSummary(@PathVariable UUID userId) {
         User user = getUserOrThrow(userId);
-        return cycleSummaryRepository.findFirstByUserAndAcknowledgedFalseOrderByCycleEndDateDesc(user)
-                .map(s -> ResponseEntity.ok(CycleSummaryResponse.builder()
-                        .id(s.getId())
-                        .exerciseName(s.getExerciseName())
-                        .successWeeks(s.getSuccessWeeks())
-                        .totalWeeks(s.getTotalWeeks())
-                        .outcome(s.getOutcome().name())
-                        .cycleEndDate(s.getCycleEndDate())
-                        .build()))
+        return cycleSummaryRepository
+                .findFirstByUserAndAcknowledgedFalseAndOutcomeOrderByCycleEndDateDesc(user, CycleSummary.Outcome.MASTERED)
+                .map(s -> ResponseEntity.ok(toCycleSummaryResponse(s)))
                 .orElse(ResponseEntity.noContent().build());
+    }
+
+    private CycleSummaryResponse toCycleSummaryResponse(CycleSummary s) {
+        return CycleSummaryResponse.builder()
+                .id(s.getId())
+                .exerciseName(s.getExerciseName())
+                .successWeeks(s.getSuccessWeeks())
+                .totalWeeks(s.getTotalWeeks())
+                .outcome(s.getOutcome().name())
+                .cycleEndDate(s.getCycleEndDate())
+                .build();
     }
 
     @PostMapping("/{userId}/cycle-summary/{summaryId}/ack")

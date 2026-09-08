@@ -44,11 +44,11 @@ class WeeklyEvaluationServiceCycleSummaryTest {
 
         for (int week = 1; week <= 3; week++) {
             weeklyGoalRepository.save(WeeklyGoal.builder()
-                    .userExercise(ue).weekNumber(week).targetValue(5)
+                    .userExercise(ue).cycleNumber(1).weekNumber(week).targetValue(5)
                     .successDays(5).result(WeeklyGoal.Result.SUCCESS).build());
         }
         weeklyGoalRepository.save(WeeklyGoal.builder()
-                .userExercise(ue).weekNumber(4).targetValue(5)
+                .userExercise(ue).cycleNumber(1).weekNumber(4).targetValue(5)
                 .successDays(5).result(WeeklyGoal.Result.IN_PROGRESS).build());
 
         weeklyEvaluationService.finalizeWeek(ue, LocalDate.now());
@@ -57,7 +57,8 @@ class WeeklyEvaluationServiceCycleSummaryTest {
         assertThat(updated.getStatus()).isEqualTo(UserExercise.Status.MASTERED);
 
         CycleSummary summary = cycleSummaryRepository
-                .findFirstByUserAndAcknowledgedFalseOrderByCycleEndDateDesc(user).orElseThrow();
+                .findFirstByUserAndAcknowledgedFalseAndOutcomeOrderByCycleEndDateDesc(user, CycleSummary.Outcome.MASTERED)
+                .orElseThrow();
         assertThat(summary.getOutcome()).isEqualTo(CycleSummary.Outcome.MASTERED);
         assertThat(summary.getSuccessWeeks()).isEqualTo(4);
         assertThat(summary.getTotalWeeks()).isEqualTo(4);
@@ -76,13 +77,13 @@ class WeeklyEvaluationServiceCycleSummaryTest {
                 .build());
 
         weeklyGoalRepository.save(WeeklyGoal.builder()
-                .userExercise(ue).weekNumber(1).targetValue(5).successDays(2).result(WeeklyGoal.Result.FAIL).build());
+                .userExercise(ue).cycleNumber(1).weekNumber(1).targetValue(5).successDays(2).result(WeeklyGoal.Result.FAIL).build());
         weeklyGoalRepository.save(WeeklyGoal.builder()
-                .userExercise(ue).weekNumber(2).targetValue(4).successDays(2).result(WeeklyGoal.Result.FAIL).build());
+                .userExercise(ue).cycleNumber(1).weekNumber(2).targetValue(4).successDays(2).result(WeeklyGoal.Result.FAIL).build());
         weeklyGoalRepository.save(WeeklyGoal.builder()
-                .userExercise(ue).weekNumber(3).targetValue(4).successDays(5).result(WeeklyGoal.Result.SUCCESS).build());
+                .userExercise(ue).cycleNumber(1).weekNumber(3).targetValue(4).successDays(5).result(WeeklyGoal.Result.SUCCESS).build());
         weeklyGoalRepository.save(WeeklyGoal.builder()
-                .userExercise(ue).weekNumber(4).targetValue(4).successDays(2).result(WeeklyGoal.Result.IN_PROGRESS).build());
+                .userExercise(ue).cycleNumber(1).weekNumber(4).targetValue(4).successDays(2).result(WeeklyGoal.Result.IN_PROGRESS).build());
 
         weeklyEvaluationService.finalizeWeek(ue, LocalDate.now());
 
@@ -93,8 +94,61 @@ class WeeklyEvaluationServiceCycleSummaryTest {
         assertThat(updated.getCurrentTarget()).isEqualTo(4);
 
         CycleSummary summary = cycleSummaryRepository
-                .findFirstByUserAndAcknowledgedFalseOrderByCycleEndDateDesc(user).orElseThrow();
+                .findFirstByUserAndAcknowledgedFalseAndOutcomeOrderByCycleEndDateDesc(user, CycleSummary.Outcome.EXTENDED)
+                .orElseThrow();
         assertThat(summary.getOutcome()).isEqualTo(CycleSummary.Outcome.EXTENDED);
         assertThat(summary.getSuccessWeeks()).isEqualTo(1);
+    }
+
+    @Test
+    void 두_번째_연장도_이전_사이클과_주차가_안_섞인다() {
+        // 회귀 테스트: cycleNumber로 구분하기 전에는 연장이 두 번째로 일어날 때
+        // weekNumber=1인 WeeklyGoal이 사이클마다 새로 생기면서 이전 사이클 것과 충돌해
+        // NonUniqueResultException이 났었다.
+        User user = userRepository.save(User.builder().nickname("두번째연장테스트").build());
+        Exercise exercise = exerciseRepository.findAll().get(0);
+
+        UserExercise ue = userExerciseRepository.save(UserExercise.builder()
+                .user(user).exercise(exercise).status(UserExercise.Status.ACTIVE)
+                .cycleStartDate(LocalDate.now().minusWeeks(3))
+                .currentWeek(4).currentTarget(4).orderIndex(0)
+                .build());
+
+        for (int week = 1; week <= 4; week++) {
+            weeklyGoalRepository.save(WeeklyGoal.builder()
+                    .userExercise(ue).cycleNumber(1).weekNumber(week).targetValue(4)
+                    .successDays(2).result(week == 4 ? WeeklyGoal.Result.IN_PROGRESS : WeeklyGoal.Result.FAIL)
+                    .build());
+        }
+
+        weeklyEvaluationService.finalizeWeek(ue, LocalDate.now()); // 1차 연장 → cycleNumber 2로
+
+        UserExercise afterFirstExtension = userExerciseRepository.findById(ue.getId()).orElseThrow();
+        assertThat(afterFirstExtension.getCycleNumber()).isEqualTo(2);
+        assertThat(afterFirstExtension.getCurrentWeek()).isEqualTo(1);
+
+        // 2번째 사이클의 2~4주차를 채우고 다시 4주차까지 진행
+        for (int week = 2; week <= 4; week++) {
+            afterFirstExtension.setCurrentWeek(week);
+            userExerciseRepository.save(afterFirstExtension);
+            weeklyGoalRepository.save(WeeklyGoal.builder()
+                    .userExercise(afterFirstExtension).cycleNumber(2).weekNumber(week).targetValue(4)
+                    .successDays(2).result(week == 4 ? WeeklyGoal.Result.IN_PROGRESS : WeeklyGoal.Result.FAIL)
+                    .build());
+        }
+
+        // 이전에는 여기서 currentWeekGoal 조회가 cycleNumber 없이 weekNumber=1로만 걸려서
+        // 1차/2차 사이클의 weekNumber=1 두 행이 걸려 NonUniqueResultException이 났었다.
+        weeklyEvaluationService.finalizeWeek(afterFirstExtension, LocalDate.now());
+
+        UserExercise afterSecondExtension = userExerciseRepository.findById(ue.getId()).orElseThrow();
+        assertThat(afterSecondExtension.getCycleNumber()).isEqualTo(3);
+        assertThat(afterSecondExtension.getCurrentWeek()).isEqualTo(1);
+
+        // 2번째 사이클의 successWeeks가 1번째 사이클 것과 안 섞였는지 확인 (둘 다 0으로 계산돼야 함)
+        CycleSummary secondSummary = cycleSummaryRepository
+                .findFirstByUserAndAcknowledgedFalseAndOutcomeOrderByCycleEndDateDesc(user, CycleSummary.Outcome.EXTENDED)
+                .orElseThrow();
+        assertThat(secondSummary.getSuccessWeeks()).isEqualTo(0);
     }
 }

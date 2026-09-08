@@ -1,5 +1,6 @@
 package com.hanaman.service;
 
+import com.hanaman.domain.User;
 import com.hanaman.domain.UserExercise;
 import com.hanaman.domain.WeeklyGoal;
 import org.springframework.stereotype.Service;
@@ -52,5 +53,28 @@ public class NotificationService {
         LocalDate weekStart = activeExercise.getCycleStartDate().plusWeeks(activeExercise.getCurrentWeek() - 1L);
         long diff = ChronoUnit.DAYS.between(weekStart, today) + 1;
         return (int) Math.min(Math.max(diff, 1), 7);
+    }
+
+    // 너무 작은 값(예: 1일)에서까지 "최고 기록"이라고 하면 과장처럼 느껴져서 최소치를 둔다.
+    private static final int RECORD_MIN_THRESHOLD = 3;
+
+    /**
+     * 롤링 스트릭이 오늘 새 개인 기록을 세웠을 때만 담담한 톤으로 알려준다.
+     * "경신!", "축하" 같은 경쟁/성취 프레이밍은 쓰지 않는다 — 실패 라벨을 안 쓰는 것과 같은 이유로,
+     * 잘했을 때도 과도하게 띄우지 않는 톤을 유지한다.
+     */
+    public String buildRollingStreakRecordMessage(User user, int rollingCount, LocalDate today) {
+        if (rollingCount < RECORD_MIN_THRESHOLD) {
+            return null;
+        }
+        Integer best = user.getBestRollingStreak();
+        LocalDate bestDate = user.getBestRollingStreakDate();
+        if (best == null || bestDate == null) {
+            return null;
+        }
+        if (rollingCount != best || !bestDate.equals(today)) {
+            return null;
+        }
+        return "지금까지 중 가장 꾸준했던 주예요";
     }
 }

@@ -171,25 +171,19 @@ function OnboardingForm({ onCreated }) {
   );
 }
 
-// 4주 사이클이 끝난 직후 한 번 보여주는 요약 화면.
+// 4주 사이클을 "마스터"한 직후 한 번 보여주는 요약 화면.
+// 마스터는 다음 동작을 골라야 하는 진짜 결정이 있어서 블로킹 화면으로 유지한다.
+// (연장은 결정할 게 없어서 오늘의 미션 화면 위 배너로만 보여줌 — extensionNotice 참고)
 // "실패" 대신 이번 사이클을 어떻게 마무리했는지만 담백하게 알려주고,
 // 목표 조정 안내(target-note)와 같은 톤을 쓰기 위해 기존 클래스를 그대로 재사용한다.
 function CycleSummaryScreen({ summary, onConfirm, confirming, error }) {
-  const isMastered = summary.outcome === "MASTERED";
-
   return (
     <div className="app-shell">
       <div className="mission-card onboarding-card">
         <h1 className="onboarding-title">
-          {isMastered
-            ? `4주 중 ${summary.successWeeks}주 성공해서 ${summary.exerciseName}을 마스터했어요`
-            : `4주 중 ${summary.successWeeks}주 성공, 조금 더 다져볼게요`}
+          {`4주 중 ${summary.successWeeks}주 성공해서 ${summary.exerciseName}을 마스터했어요`}
         </h1>
-        <p className="onboarding-sub">
-          {isMastered
-            ? "다음 동작을 고르면 새로운 4주가 시작돼요"
-            : `${summary.exerciseName}으로 다음 4주를 이어가요. 지금까지 흐름 그대로예요.`}
-        </p>
+        <p className="onboarding-sub">다음 동작을 고르면 새로운 4주가 시작돼요</p>
 
         <div className="rhythm-row" aria-label={`4주 중 ${summary.successWeeks}주 성공`}>
           {Array.from({ length: summary.totalWeeks }).map((_, i) => (
@@ -203,7 +197,7 @@ function CycleSummaryScreen({ summary, onConfirm, confirming, error }) {
         {error && <p className="error-text">{error}</p>}
 
         <button className="commit-btn" onClick={onConfirm} disabled={confirming}>
-          {confirming ? "확인하는 중…" : isMastered ? "다음 동작 고르러 가기" : "확인, 이어서 하기"}
+          {confirming ? "확인하는 중…" : "다음 동작 고르러 가기"}
         </button>
       </div>
     </div>
@@ -298,8 +292,8 @@ export default function App() {
   function loadToday(id) {
     setLoading(true);
     setError(null);
-    // 앱에 들어올 때 가장 먼저 "확인 안 한 사이클 요약"이 있는지부터 본다.
-    // 있으면 오늘의 미션보다 그 화면이 우선이라, today/rhythm은 그 다음에 불러온다.
+    // 앱에 들어올 때 가장 먼저 "확인 안 한 마스터 요약"이 있는지부터 본다 (다음 동작 선택이
+    // 필요한 진짜 결정이라 블로킹). 연장 요약은 여기 안 걸리고, 아래 today 응답에 배너로 딸려온다.
     return fetchCycleSummary(id)
       .then((summary) => {
         if (summary) {
@@ -327,14 +321,9 @@ export default function App() {
   async function handleAckCycleSummary() {
     setConfirming(true);
     try {
-      const outcome = cycleSummary.outcome;
       await acknowledgeCycleSummary(userId, cycleSummary.id);
       setCycleSummary(null);
-      if (outcome === "MASTERED") {
-        setNeedsExercisePick(true);
-      } else {
-        await loadToday(userId);
-      }
+      setNeedsExercisePick(true);
     } catch (err) {
       if (err.status === 404) {
         handleUserGone();
@@ -431,8 +420,18 @@ export default function App() {
   return (
     <div className="app-shell">
       <div className="mission-card">
+        {mission.extensionNotice && (
+          <div className="banner">
+            {`4주 중 ${mission.extensionNotice.successWeeks}주 성공, 조금 더 다져볼게요 — ${mission.extensionNotice.exerciseName}으로 계속 이어가요`}
+          </div>
+        )}
+
         {mission.notificationMessage && (
           <div className="banner">{mission.notificationMessage}</div>
+        )}
+
+        {mission.rollingStreakRecordMessage && (
+          <div className="banner">{mission.rollingStreakRecordMessage}</div>
         )}
 
         <div className="cycle-row">

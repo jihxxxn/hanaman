@@ -50,6 +50,15 @@ public class UserExercise {
     @Column(nullable = false)
     private Integer orderIndex;
 
+    /**
+     * 이 동작을 몇 번째 4주 사이클째 진행 중인지 (1부터 시작, 연장될 때마다 +1).
+     * UserExercise는 연장돼도 같은 행을 재사용하기 때문에, weekNumber(1~4)만으로는
+     * 이전 사이클과 새 사이클의 WeeklyGoal을 구분할 수 없어서 별도로 둔다.
+     */
+    @Builder.Default
+    @Column(nullable = false)
+    private Integer cycleNumber = 1;
+
     public enum Status {
         ACTIVE,     // 현재 4주 사이클 진행 중
         MASTERED,   // 4주 중 3주 이상 성공하여 완료

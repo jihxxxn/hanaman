@@ -38,7 +38,8 @@ public class WeeklyEvaluationService {
     @Transactional
     public void finalizeWeek(UserExercise activeExercise, LocalDate cycleReferenceDate) {
         WeeklyGoal currentWeekGoal = weeklyGoalRepository
-                .findByUserExerciseAndWeekNumber(activeExercise, activeExercise.getCurrentWeek())
+                .findByUserExerciseAndCycleNumberAndWeekNumber(
+                        activeExercise, activeExercise.getCycleNumber(), activeExercise.getCurrentWeek())
                 .orElseThrow(() -> new IllegalStateException("현재 주차 WeeklyGoal 없음"));
 
         boolean success = currentWeekGoal.getSuccessDays() >= SUCCESS_DAYS_THRESHOLD;
@@ -64,6 +65,7 @@ public class WeeklyEvaluationService {
 
         weeklyGoalRepository.save(WeeklyGoal.builder()
                 .userExercise(activeExercise)
+                .cycleNumber(activeExercise.getCycleNumber())
                 .weekNumber(activeExercise.getCurrentWeek())
                 .targetValue(nextTarget)
                 .successDays(0)
@@ -72,7 +74,9 @@ public class WeeklyEvaluationService {
     }
 
     private void finalizeCycle(UserExercise activeExercise, LocalDate cycleReferenceDate) {
-        long successWeeks = weeklyGoalRepository.findAllByUserExerciseOrderByWeekNumberAsc(activeExercise)
+        // "지금 사이클"에 속한 주차만 세야 한다 — 이전에 연장된 사이클의 성공 주차가 섞이면 안 됨.
+        long successWeeks = weeklyGoalRepository
+                .findAllByUserExerciseAndCycleNumberOrderByWeekNumberAsc(activeExercise, activeExercise.getCycleNumber())
                 .stream()
                 .filter(w -> w.getResult() == WeeklyGoal.Result.SUCCESS)
                 .count();
@@ -96,11 +100,13 @@ public class WeeklyEvaluationService {
             activeExercise.setStatus(UserExercise.Status.EXTENDED);
             activeExercise.setCurrentWeek(1);
             activeExercise.setCycleStartDate(cycleReferenceDate);
+            activeExercise.setCycleNumber(activeExercise.getCycleNumber() + 1);
             // 목표치는 마지막 주 값을 그대로 유지 (급격한 리셋 방지)
             userExerciseRepository.save(activeExercise);
 
             weeklyGoalRepository.save(WeeklyGoal.builder()
                     .userExercise(activeExercise)
+                    .cycleNumber(activeExercise.getCycleNumber())
                     .weekNumber(1)
                     .targetValue(activeExercise.getCurrentTarget())
                     .successDays(0)

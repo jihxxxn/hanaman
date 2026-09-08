@@ -1,5 +1,6 @@
 package com.hanaman.service;
 
+import com.hanaman.domain.User;
 import com.hanaman.domain.UserExercise;
 import com.hanaman.domain.WeeklyGoal;
 import org.junit.jupiter.api.Test;
@@ -48,6 +49,34 @@ class NotificationServiceTest {
         UserExercise active = exercise(today.minusWeeks(3).minusDays(6), 4);
         String message = service.buildTodayNotification(active, weeklyGoal(1), today);
         assertThat(message).isEqualTo("오늘이 이번 사이클 마지막 날이에요");
+    }
+
+    @Test
+    void 오늘_개인_최고_기록을_세우면_담담한_문구를_보여준다() {
+        User user = User.builder().bestRollingStreak(4).bestRollingStreakDate(today).build();
+        String message = service.buildRollingStreakRecordMessage(user, 4, today);
+        assertThat(message).isEqualTo("지금까지 중 가장 꾸준했던 주예요");
+    }
+
+    @Test
+    void 최고_기록이어도_오늘_세운_게_아니면_문구_안_뜸() {
+        User user = User.builder().bestRollingStreak(4).bestRollingStreakDate(today.minusDays(1)).build();
+        String message = service.buildRollingStreakRecordMessage(user, 4, today);
+        assertThat(message).isNull();
+    }
+
+    @Test
+    void 최소_기준_미만이면_기록이어도_문구_안_뜸() {
+        User user = User.builder().bestRollingStreak(2).bestRollingStreakDate(today).build();
+        String message = service.buildRollingStreakRecordMessage(user, 2, today);
+        assertThat(message).isNull();
+    }
+
+    @Test
+    void 지금_최고_기록이_아니면_문구_안_뜸() {
+        User user = User.builder().bestRollingStreak(6).bestRollingStreakDate(today.minusDays(2)).build();
+        String message = service.buildRollingStreakRecordMessage(user, 4, today);
+        assertThat(message).isNull();
     }
 
     private UserExercise exercise(LocalDate cycleStartDate, int currentWeek) {

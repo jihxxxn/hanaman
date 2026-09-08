@@ -9,5 +9,6 @@ import java.util.UUID;
 
 public interface CycleSummaryRepository extends JpaRepository<CycleSummary, UUID> {
 
-    Optional<CycleSummary> findFirstByUserAndAcknowledgedFalseOrderByCycleEndDateDesc(User user);
+    Optional<CycleSummary> findFirstByUserAndAcknowledgedFalseAndOutcomeOrderByCycleEndDateDesc(
+            User user, CycleSummary.Outcome outcome);
 }

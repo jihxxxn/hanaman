@@ -25,4 +25,10 @@ public class TodayMissionResponse {
 
     // 오늘의 한 줄 알림 문구 (NotificationService가 계산) — 항상 채워짐
     private String notificationMessage;
+
+    // 오늘 롤링 스트릭이 개인 최고 기록을 새로 세웠을 때만 채워짐 (그 외엔 null)
+    private String rollingStreakRecordMessage;
+
+    // 방금 확인한 "연장" 사이클 요약 — 결정할 게 없는 케이스라 블로킹 화면 대신 오늘의 미션 화면에 배너로만 보여줌
+    private CycleSummaryResponse extensionNotice;
 }

@@ -10,7 +10,9 @@ import java.util.UUID;
 
 public interface WeeklyGoalRepository extends JpaRepository<WeeklyGoal, UUID> {
 
-    List<WeeklyGoal> findAllByUserExerciseOrderByWeekNumberAsc(UserExercise userExercise);
+    /** 특정 사이클(cycleNumber)에 속한 주차들만 — 마스터 판정은 "지금 사이클" 4주만 봐야 하므로 이걸 쓴다. */
+    List<WeeklyGoal> findAllByUserExerciseAndCycleNumberOrderByWeekNumberAsc(UserExercise userExercise, Integer cycleNumber);
 
-    Optional<WeeklyGoal> findByUserExerciseAndWeekNumber(UserExercise userExercise, Integer weekNumber);
+    Optional<WeeklyGoal> findByUserExerciseAndCycleNumberAndWeekNumber(
+            UserExercise userExercise, Integer cycleNumber, Integer weekNumber);
 }

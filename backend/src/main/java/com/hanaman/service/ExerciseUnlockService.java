@@ -50,6 +50,7 @@ public class ExerciseUnlockService {
 
         weeklyGoalRepository.save(WeeklyGoal.builder()
                 .userExercise(userExercise)
+                .cycleNumber(userExercise.getCycleNumber())
                 .weekNumber(1)
                 .targetValue(exercise.getDefaultStartValue())
                 .successDays(0)
