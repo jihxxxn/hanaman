@@ -1,19 +1,11 @@
-import { useMemo, useState } from "react";
-
-// 데모용 로컬 상태 — 실제로는 GET /api/users/{id}/today, POST /api/users/{id}/checkins 로 대체됩니다.
-const INITIAL_MISSION = {
-  exerciseName: "스쿼트",
-  unit: "REPS",
-  target: 12,
-  currentWeek: 2,
-  triggerHabit: "양치하고 나서",
-  // 최근 7일 리듬 (오늘 제외 6일 + 오늘) — true = 목표 달성
-  rhythm: [true, true, false, true, true, false, null],
-};
+import { useEffect, useState } from "react";
+import { createUser, fetchExercises, fetchTodayMission, submitCheckIn } from "./api";
 
 const WEEKS_PER_CYCLE = 4;
+const RHYTHM_DAYS = 7;
+const USER_ID_KEY = "hanaman_user_id";
 
-function GrowthRing({ progressRatio, count, target }) {
+function GrowthRing({ progressRatio, count, target, unitLabel }) {
   const radius = 110;
   const circumference = 2 * Math.PI * radius;
   const clamped = Math.min(progressRatio, 1);
@@ -34,36 +26,185 @@ function GrowthRing({ progressRatio, count, target }) {
       </svg>
       <div className="ring-center">
         <span className="ring-count">{count}</span>
-        <span className="ring-target">/ {target}회 목표</span>
+        <span className="ring-target">/ {target}{unitLabel} 목표</span>
       </div>
     </div>
   );
 }
 
+function OnboardingForm({ onCreated }) {
+  const [exercises, setExercises] = useState([]);
+  const [nickname, setNickname] = useState("");
+  const [triggerHabit, setTriggerHabit] = useState("");
+  const [firstExerciseName, setFirstExerciseName] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    fetchExercises()
+      .then((list) => {
+        setExercises(list);
+        if (list.length > 0) setFirstExerciseName(list[0].name);
+      })
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (!nickname.trim() || !firstExerciseName) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const userId = await createUser({
+        nickname: nickname.trim(),
+        triggerHabit: triggerHabit.trim(),
+        firstExerciseName,
+      });
+      localStorage.setItem(USER_ID_KEY, userId);
+      onCreated(userId);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="app-shell">
+      <form className="mission-card onboarding-card" onSubmit={handleSubmit}>
+        <h1 className="onboarding-title">하나만, 시작해볼까요</h1>
+        <p className="onboarding-sub">
+          매일 채울 동작 하나를 고르고, 시작 트리거를 정해주세요.
+        </p>
+
+        <label className="field-label">
+          닉네임
+          <input
+            className="field-input"
+            value={nickname}
+            onChange={(e) => setNickname(e.target.value)}
+            placeholder="예: 지현"
+            required
+          />
+        </label>
+
+        <label className="field-label">
+          시작 트리거 (선택)
+          <input
+            className="field-input"
+            value={triggerHabit}
+            onChange={(e) => setTriggerHabit(e.target.value)}
+            placeholder="예: 양치하고 나서"
+          />
+        </label>
+
+        <label className="field-label">
+          첫 동작
+          {loading ? (
+            <p className="onboarding-sub">동작 목록을 불러오는 중…</p>
+          ) : (
+            <select
+              className="field-input"
+              value={firstExerciseName}
+              onChange={(e) => setFirstExerciseName(e.target.value)}
+              required
+            >
+              {exercises.map((ex) => (
+                <option key={ex.id} value={ex.name}>
+                  {ex.name}
+                </option>
+              ))}
+            </select>
+          )}
+        </label>
+
+        {error && <p className="error-text">{error}</p>}
+
+        <button className="commit-btn" type="submit" disabled={submitting || loading}>
+          {submitting ? "시작하는 중…" : "하나만 시작하기"}
+        </button>
+      </form>
+    </div>
+  );
+}
+
 export default function App() {
-  const [mission] = useState(INITIAL_MISSION);
+  const [userId, setUserId] = useState(() => localStorage.getItem(USER_ID_KEY));
+  const [mission, setMission] = useState(null);
   const [completed, setCompleted] = useState(0);
   const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  const achieved = completed >= mission.target;
-  const progressRatio = mission.target === 0 ? 0 : completed / mission.target;
+  function loadToday(id) {
+    setLoading(true);
+    setError(null);
+    return fetchTodayMission(id)
+      .then((data) => {
+        setMission(data);
+        setCompleted(data.completedValueToday);
+        setSubmitted(data.achievedToday);
+      })
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  }
 
-  const todayRhythm = useMemo(() => {
-    const copy = [...mission.rhythm];
-    copy[copy.length - 1] = achieved;
-    return copy;
-  }, [mission.rhythm, achieved]);
+  useEffect(() => {
+    if (userId) loadToday(userId);
+  }, [userId]);
 
-  const rollingCount = todayRhythm.filter(Boolean).length;
+  if (!userId) {
+    return (
+      <OnboardingForm
+        onCreated={(id) => {
+          setUserId(id);
+        }}
+      />
+    );
+  }
+
+  if (loading && !mission) {
+    return (
+      <div className="app-shell">
+        <p className="onboarding-sub">오늘의 미션을 불러오는 중…</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="app-shell">
+        <div className="mission-card">
+          <p className="error-text">{error}</p>
+          <button className="commit-btn" onClick={() => loadToday(userId)}>
+            다시 시도
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!mission) return null;
+
+  const unitLabel = mission.unit === "SECONDS" ? "초" : "회";
+  const achieved = completed >= mission.targetValue;
+  const progressRatio = mission.targetValue === 0 ? 0 : completed / mission.targetValue;
+  const rollingCount = Math.min(mission.rollingSuccessCount, RHYTHM_DAYS);
 
   function handleAdjust(delta) {
     setCompleted((prev) => Math.max(0, prev + delta));
     setSubmitted(false);
   }
 
-  function handleCommit() {
-    // 실제 구현: POST /api/users/{id}/checkins { completedValue: completed }
-    setSubmitted(true);
+  async function handleCommit() {
+    try {
+      await submitCheckIn(userId, completed);
+      await loadToday(userId);
+    } catch (err) {
+      setError(err.message);
+    }
   }
 
   return (
@@ -81,7 +222,12 @@ export default function App() {
           </div>
         </div>
 
-        <GrowthRing progressRatio={progressRatio} count={completed} target={mission.target} />
+        <GrowthRing
+          progressRatio={progressRatio}
+          count={completed}
+          target={mission.targetValue}
+          unitLabel={unitLabel}
+        />
 
         <div className="stepper-row">
           <button className="stepper-btn" onClick={() => handleAdjust(-1)} aria-label="1개 빼기">
@@ -100,14 +246,13 @@ export default function App() {
           {submitted ? "오늘 기록 완료" : achieved ? "목표 채우고 기록하기" : "여기까지 기록하기"}
         </button>
 
-        {mission.triggerHabit && (
-          <p className="trigger-note">"{mission.triggerHabit}" 하나만 하면 끝이에요</p>
-        )}
-
-        <div className="rhythm-row" aria-label="최근 7일 리듬">
-          {todayRhythm.map((hit, i) => (
-            <span key={i} className={`rhythm-day ${hit ? "hit" : ""}`}>
-              {hit ? "●" : ""}
+        <div
+          className="rhythm-row"
+          aria-label={`최근 ${RHYTHM_DAYS}일 중 ${rollingCount}일 달성`}
+        >
+          {Array.from({ length: RHYTHM_DAYS }).map((_, i) => (
+            <span key={i} className={`rhythm-day ${i < rollingCount ? "hit" : ""}`}>
+              {i < rollingCount ? "●" : ""}
             </span>
           ))}
         </div>
