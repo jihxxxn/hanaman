@@ -252,11 +252,11 @@ button {
   font-size: 12px;
 }
 
-/* 목표 미달 — 시도는 했으나 못 채운 날 */
+/* 목표 미달 — 그래도 뭔가는 채운 날. "실패"로 안 보이게 연한 채움으로만 표현 (점선/X 금지) */
 .rhythm-day.below {
-  border-style: dashed;
-  border-color: var(--ink-soft);
-  font-size: 18px;
+  background: rgba(53, 81, 59, 0.16);
+  border-color: rgba(53, 81, 59, 0.16);
+  color: var(--moss-deep);
 }
 
 .rhythm-legend {
@@ -290,7 +290,7 @@ button {
 }
 
 .legend-dot.below {
-  border: 1.5px dashed var(--ink-soft);
+  background: rgba(53, 81, 59, 0.16);
 }
 
 .banner {

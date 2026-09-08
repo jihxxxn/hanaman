@@ -14,7 +14,7 @@ const RHYTHM_LABEL = {
 
 const RHYTHM_SYMBOL = {
   NONE: "",
-  BELOW: "·",
+  BELOW: "•",
   EXACT: "●",
   EXCEEDED: "★",
 };
@@ -281,7 +281,7 @@ export default function App() {
 
         <div
           className="rhythm-section"
-          title="● 목표만 달성 · ★ 목표 초과 달성 · · 목표 미달 — 5일 이상 달성하면 이번 주는 성공이에요"
+          title="★ 목표 초과 달성 · ● 목표만 달성 · • 목표 미달(그래도 기록은 남아요) — 5일 이상 달성하면 이번 주는 성공이에요"
         >
           <p className="rhythm-caption">이번 주 리듬 · 7일 중 {rollingCount}일 달성</p>
           <div className="rhythm-row" aria-label={`최근 ${RHYTHM_DAYS}일 중 ${rollingCount}일 달성`}>
