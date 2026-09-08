@@ -5,10 +5,11 @@ const WEEKS_PER_CYCLE = 4;
 const RHYTHM_DAYS = 7;
 const USER_ID_KEY = "hanaman_user_id";
 
+// "미달/실패" 대신 과정 중심 표현 — 완전히 못 채운 날도 "그래도 채운 날"로 표현한다.
 const RHYTHM_LABEL = {
   NONE: "기록 없음",
-  BELOW: "목표 미달",
-  EXACT: "목표만 달성",
+  BELOW: "조금 채웠어요",
+  EXACT: "목표 달성",
   EXCEEDED: "목표 초과 달성",
 };
 
@@ -281,7 +282,7 @@ export default function App() {
 
         <div
           className="rhythm-section"
-          title="★ 목표 초과 달성 · ● 목표만 달성 · • 목표 미달(그래도 기록은 남아요) — 5일 이상 달성하면 이번 주는 성공이에요"
+          title="★ 목표 초과 달성 · ● 목표 달성 · • 조금 채웠어요 — 5일 이상이면 이번 주는 그걸로 충분해요"
         >
           <p className="rhythm-caption">이번 주 리듬 · 7일 중 {rollingCount}일 달성</p>
           <div className="rhythm-row" aria-label={`최근 ${RHYTHM_DAYS}일 중 ${rollingCount}일 달성`}>
@@ -298,13 +299,16 @@ export default function App() {
           <div className="rhythm-legend">
             <span><i className="legend-dot exceeded" />초과</span>
             <span><i className="legend-dot exact" />달성</span>
-            <span><i className="legend-dot below" />미달</span>
+            <span><i className="legend-dot below" />조금 채움</span>
           </div>
+          <p className="rhythm-reassure">
+            하루를 놓쳐도 습관은 끊기지 않아요 — 목표는 계속 진행 중이에요
+          </p>
         </div>
 
         {rollingCount <= 2 && (
           <div className="banner">
-            이번 주는 조금 느슨해도 괜찮아요. 하나만 채우면, 오늘은 그걸로 충분해요.
+            요즘 며칠 못 채웠어도 괜찮아요. 하나만 다시 채우면, 리듬은 바로 돌아와요.
           </div>
         )}
       </div>
