@@ -6,7 +6,7 @@
 ## 구성
 - `docs/DESIGN.md` — 도메인 모델, ERD, API 스펙, 아키텍처 설계 근거
 - `backend/` — Spring Boot 3 백엔드 (Java 17, JPA, Redis, H2/PostgreSQL)
-- `frontend/` — React + Vite 프론트엔드 (오늘의 미션 화면 프로토타입)
+- `hanaman/` — React + Vite 프론트엔드 (오늘의 미션 화면 프로토타입)
 
 ## 핵심 설계 포인트
 1. **주 단위 완화형 성공 기준**: 7일 중 5일 이상 목표 달성이면 그 주는 성공. 하루 놓쳐도 전체가 리셋되지 않음.
@@ -30,7 +30,7 @@ cd backend
 
 ### 프론트엔드
 ```bash
-cd frontend
+cd hanaman
 npm install
 npm run dev
 ```
