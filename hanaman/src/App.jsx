@@ -1,9 +1,23 @@
 import { useEffect, useState } from "react";
-import { createUser, fetchExercises, fetchTodayMission, submitCheckIn } from "./api";
+import { createUser, fetchExercises, fetchRhythm, fetchTodayMission, submitCheckIn } from "./api";
 
 const WEEKS_PER_CYCLE = 4;
 const RHYTHM_DAYS = 7;
 const USER_ID_KEY = "hanaman_user_id";
+
+const RHYTHM_LABEL = {
+  NONE: "기록 없음",
+  BELOW: "목표 미달",
+  EXACT: "목표만 달성",
+  EXCEEDED: "목표 초과 달성",
+};
+
+const RHYTHM_SYMBOL = {
+  NONE: "",
+  BELOW: "·",
+  EXACT: "●",
+  EXCEEDED: "★",
+};
 
 function GrowthRing({ progressRatio, count, target, unitLabel }) {
   const radius = 110;
@@ -133,6 +147,7 @@ function OnboardingForm({ onCreated }) {
 export default function App() {
   const [userId, setUserId] = useState(() => localStorage.getItem(USER_ID_KEY));
   const [mission, setMission] = useState(null);
+  const [rhythm, setRhythm] = useState([]);
   const [completed, setCompleted] = useState(0);
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -141,11 +156,12 @@ export default function App() {
   function loadToday(id) {
     setLoading(true);
     setError(null);
-    return fetchTodayMission(id)
-      .then((data) => {
-        setMission(data);
-        setCompleted(data.completedValueToday);
-        setSubmitted(data.achievedToday);
+    return Promise.all([fetchTodayMission(id), fetchRhythm(id)])
+      .then(([mission, rhythmDays]) => {
+        setMission(mission);
+        setRhythm(rhythmDays);
+        setCompleted(mission.completedValueToday);
+        setSubmitted(mission.achievedToday);
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
@@ -252,15 +268,24 @@ export default function App() {
 
         <div
           className="rhythm-section"
-          title="최근 7일 중 목표를 달성한 날의 수 — 5일 이상이면 이번 주는 성공이에요"
+          title="● 목표만 달성 · ★ 목표 초과 달성 · · 목표 미달 — 5일 이상 달성하면 이번 주는 성공이에요"
         >
           <p className="rhythm-caption">이번 주 리듬 · 7일 중 {rollingCount}일 달성</p>
           <div className="rhythm-row" aria-label={`최근 ${RHYTHM_DAYS}일 중 ${rollingCount}일 달성`}>
-            {Array.from({ length: RHYTHM_DAYS }).map((_, i) => (
-              <span key={i} className={`rhythm-day ${i < rollingCount ? "hit" : ""}`}>
-                {i < rollingCount ? "●" : ""}
+            {rhythm.map((day) => (
+              <span
+                key={day.date}
+                className={`rhythm-day ${day.status.toLowerCase()}`}
+                title={RHYTHM_LABEL[day.status]}
+              >
+                {RHYTHM_SYMBOL[day.status]}
               </span>
             ))}
+          </div>
+          <div className="rhythm-legend">
+            <span><i className="legend-dot exceeded" />초과</span>
+            <span><i className="legend-dot exact" />달성</span>
+            <span><i className="legend-dot below" />미달</span>
           </div>
         </div>
 

@@ -12,8 +12,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/users")
@@ -64,6 +67,43 @@ public class UserController {
                 .currentWeek(active.getCurrentWeek())
                 .rollingSuccessCount(rollingCount)
                 .build());
+    }
+
+    @GetMapping("/{userId}/rhythm")
+    public ResponseEntity<List<RhythmDayResponse>> getRhythm(@PathVariable UUID userId) {
+        User user = getUserOrThrow(userId);
+        UserExercise active = getActiveExerciseOrThrow(user);
+
+        LocalDate today = LocalDate.now();
+        LocalDate start = today.minusDays(6);
+
+        Map<LocalDate, CheckIn> checkInsByDate = checkInRepository
+                .findAllByUserExerciseAndDateBetween(active, start, today).stream()
+                .collect(Collectors.toMap(CheckIn::getDate, c -> c));
+
+        List<RhythmDayResponse> days = new ArrayList<>();
+        for (LocalDate date = start; !date.isAfter(today); date = date.plusDays(1)) {
+            CheckIn checkIn = checkInsByDate.get(date);
+            days.add(RhythmDayResponse.builder()
+                    .date(date)
+                    .status(classify(checkIn))
+                    .build());
+        }
+        return ResponseEntity.ok(days);
+    }
+
+    private String classify(CheckIn checkIn) {
+        if (checkIn == null) {
+            return "NONE";
+        }
+        int diff = checkIn.getCompletedValue() - checkIn.getTargetValueSnapshot();
+        if (diff > 0) {
+            return "EXCEEDED";
+        }
+        if (diff == 0) {
+            return "EXACT";
+        }
+        return "BELOW";
     }
 
     @PostMapping("/{userId}/checkins")

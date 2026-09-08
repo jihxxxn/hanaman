@@ -31,6 +31,11 @@ export function fetchTodayMission(userId) {
   return request(`/api/users/${userId}/today`);
 }
 
+// 최근 7일치 기록 상태 배열: [{ date, status: "NONE"|"BELOW"|"EXACT"|"EXCEEDED" }, ...] (오래된 날짜 순)
+export function fetchRhythm(userId) {
+  return request(`/api/users/${userId}/rhythm`);
+}
+
 export function submitCheckIn(userId, completedValue) {
   return request(`/api/users/${userId}/checkins`, {
     method: "POST",
