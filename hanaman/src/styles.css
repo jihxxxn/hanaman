@@ -64,7 +64,16 @@ button {
 
 .week-leaves {
   display: flex;
+  align-items: center;
   gap: 6px;
+  cursor: default;
+}
+
+.week-label {
+  margin-left: 4px;
+  font-size: 11px;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
 }
 
 .leaf {
@@ -196,13 +205,23 @@ button {
   font-family: var(--font-display);
 }
 
+.rhythm-section {
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+  cursor: default;
+}
+
+.rhythm-caption {
+  margin: 0 0 10px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
 .rhythm-row {
   display: flex;
   justify-content: center;
   gap: 8px;
-  padding-top: 4px;
-  border-top: 1px solid var(--line);
-  padding-top: 18px;
 }
 
 .rhythm-day {

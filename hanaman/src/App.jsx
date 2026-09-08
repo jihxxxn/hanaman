@@ -212,13 +212,17 @@ export default function App() {
       <div className="mission-card">
         <div className="cycle-row">
           <span className="exercise-name">오늘은, {mission.exerciseName}</span>
-          <div className="week-leaves" aria-label={`4주 중 ${mission.currentWeek}주차`}>
+          <div
+            className="week-leaves"
+            title="4주 동안 이 동작을 꾸준히 채우면 다음 동작이 열려요"
+          >
             {Array.from({ length: WEEKS_PER_CYCLE }).map((_, i) => (
               <span
                 key={i}
                 className={`leaf ${i < mission.currentWeek ? "filled" : ""}`}
               />
             ))}
+            <span className="week-label">{mission.currentWeek}/4주차</span>
           </div>
         </div>
 
@@ -247,14 +251,17 @@ export default function App() {
         </button>
 
         <div
-          className="rhythm-row"
-          aria-label={`최근 ${RHYTHM_DAYS}일 중 ${rollingCount}일 달성`}
+          className="rhythm-section"
+          title="최근 7일 중 목표를 달성한 날의 수 — 5일 이상이면 이번 주는 성공이에요"
         >
-          {Array.from({ length: RHYTHM_DAYS }).map((_, i) => (
-            <span key={i} className={`rhythm-day ${i < rollingCount ? "hit" : ""}`}>
-              {i < rollingCount ? "●" : ""}
-            </span>
-          ))}
+          <p className="rhythm-caption">이번 주 리듬 · 7일 중 {rollingCount}일 달성</p>
+          <div className="rhythm-row" aria-label={`최근 ${RHYTHM_DAYS}일 중 ${rollingCount}일 달성`}>
+            {Array.from({ length: RHYTHM_DAYS }).map((_, i) => (
+              <span key={i} className={`rhythm-day ${i < rollingCount ? "hit" : ""}`}>
+                {i < rollingCount ? "●" : ""}
+              </span>
+            ))}
+          </div>
         </div>
 
         {rollingCount <= 2 && (
