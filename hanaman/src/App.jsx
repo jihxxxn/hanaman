@@ -163,7 +163,15 @@ export default function App() {
         setCompleted(mission.completedValueToday);
         setSubmitted(mission.achievedToday);
       })
-      .catch((err) => setError(err.message))
+      .catch((err) => {
+        if (err.status === 404) {
+          // 저장된 계정이 서버에 더 이상 없음 (예: 개발 중 DB 초기화) — 온보딩으로 되돌아감
+          localStorage.removeItem(USER_ID_KEY);
+          setUserId(null);
+          return;
+        }
+        setError(err.message);
+      })
       .finally(() => setLoading(false));
   }
 
@@ -219,6 +227,11 @@ export default function App() {
       await submitCheckIn(userId, completed);
       await loadToday(userId);
     } catch (err) {
+      if (err.status === 404) {
+        localStorage.removeItem(USER_ID_KEY);
+        setUserId(null);
+        return;
+      }
       setError(err.message);
     }
   }

@@ -8,7 +8,9 @@ async function request(path, options = {}) {
 
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    throw new Error(`${path} 요청 실패 (${res.status}) ${body}`);
+    const err = new Error(`${path} 요청 실패 (${res.status}) ${body}`);
+    err.status = res.status;
+    throw err;
   }
 
   const text = await res.text();

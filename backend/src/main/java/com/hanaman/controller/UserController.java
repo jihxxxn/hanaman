@@ -2,6 +2,7 @@ package com.hanaman.controller;
 
 import com.hanaman.domain.*;
 import com.hanaman.dto.*;
+import com.hanaman.exception.UserNotFoundException;
 import com.hanaman.repository.*;
 import com.hanaman.service.CheckInService;
 import com.hanaman.service.ExerciseUnlockService;
@@ -130,7 +131,7 @@ public class UserController {
 
     private User getUserOrThrow(UUID userId) {
         return userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자입니다."));
+                .orElseThrow(() -> new UserNotFoundException("존재하지 않는 사용자입니다."));
     }
 
     private UserExercise getActiveExerciseOrThrow(User user) {
