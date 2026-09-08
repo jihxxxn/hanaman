@@ -20,6 +20,23 @@ const RHYTHM_SYMBOL = {
   EXCEEDED: "★",
 };
 
+// 지난주 대비 이번주 목표가 왜 이 숫자인지 설명하는 문구.
+// previousWeekTarget이 없으면(1주차, 새 사이클 시작) 아무것도 보여주지 않는다.
+function buildTargetNote(mission, unitLabel) {
+  if (mission.previousWeekTarget == null) return null;
+
+  const diff = mission.targetValue - mission.previousWeekTarget;
+  const successDays = mission.previousWeekSuccessDays;
+
+  if (diff > 0) {
+    return `지난주 ${successDays}/7일 채운 덕분에 목표가 ${mission.previousWeekTarget}${unitLabel} → ${mission.targetValue}${unitLabel}로 늘었어요`;
+  }
+  if (diff < 0) {
+    return `지난주는 ${successDays}/7일이었어요. 목표를 ${mission.previousWeekTarget}${unitLabel} → ${mission.targetValue}${unitLabel}로 낮췄어요 — 무리하지 않아도 돼요`;
+  }
+  return `지난주(${successDays}/7일)와 같은 목표예요. 이 리듬 그대로 가면 돼요`;
+}
+
 function GrowthRing({ progressRatio, count, target, unitLabel }) {
   const radius = 110;
   const circumference = 2 * Math.PI * radius;
@@ -217,6 +234,7 @@ export default function App() {
   const achieved = completed >= mission.targetValue;
   const progressRatio = mission.targetValue === 0 ? 0 : completed / mission.targetValue;
   const rollingCount = Math.min(mission.rollingSuccessCount, RHYTHM_DAYS);
+  const targetNote = buildTargetNote(mission, unitLabel);
 
   function handleAdjust(delta) {
     setCompleted((prev) => Math.max(0, prev + delta));
@@ -255,6 +273,8 @@ export default function App() {
             <span className="week-label">{mission.currentWeek}/4주차</span>
           </div>
         </div>
+
+        {targetNote && <p className="target-note">{targetNote}</p>}
 
         <GrowthRing
           progressRatio={progressRatio}

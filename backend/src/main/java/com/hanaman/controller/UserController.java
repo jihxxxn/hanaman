@@ -28,6 +28,7 @@ public class UserController {
     private final ExerciseRepository exerciseRepository;
     private final UserExerciseRepository userExerciseRepository;
     private final CheckInRepository checkInRepository;
+    private final WeeklyGoalRepository weeklyGoalRepository;
     private final CheckInService checkInService;
     private final ExerciseUnlockService exerciseUnlockService;
     private final RollingStreakService rollingStreakService;
@@ -58,6 +59,11 @@ public class UserController {
         CheckIn todayCheckIn = checkInRepository.findByUserExerciseAndDate(active, today).orElse(null);
         int rollingCount = rollingStreakService.getRollingSuccessCount(userId, today);
 
+        // 지난주 WeeklyGoal이 있으면(=2주차 이상이면) 목표 조정 안내에 쓸 정보를 같이 내려준다.
+        WeeklyGoal previousWeek = active.getCurrentWeek() > 1
+                ? weeklyGoalRepository.findByUserExerciseAndWeekNumber(active, active.getCurrentWeek() - 1).orElse(null)
+                : null;
+
         return ResponseEntity.ok(TodayMissionResponse.builder()
                 .userExerciseId(active.getId())
                 .exerciseName(active.getExercise().getName())
@@ -67,6 +73,8 @@ public class UserController {
                 .achievedToday(todayCheckIn != null && todayCheckIn.getAchieved())
                 .currentWeek(active.getCurrentWeek())
                 .rollingSuccessCount(rollingCount)
+                .previousWeekTarget(previousWeek != null ? previousWeek.getTargetValue() : null)
+                .previousWeekSuccessDays(previousWeek != null ? previousWeek.getSuccessDays() : null)
                 .build());
     }
 
