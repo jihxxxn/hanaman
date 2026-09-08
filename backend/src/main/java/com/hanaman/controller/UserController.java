@@ -6,6 +6,7 @@ import com.hanaman.exception.UserNotFoundException;
 import com.hanaman.repository.*;
 import com.hanaman.service.CheckInService;
 import com.hanaman.service.ExerciseUnlockService;
+import com.hanaman.service.NotificationService;
 import com.hanaman.service.RollingStreakService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -29,9 +30,11 @@ public class UserController {
     private final UserExerciseRepository userExerciseRepository;
     private final CheckInRepository checkInRepository;
     private final WeeklyGoalRepository weeklyGoalRepository;
+    private final CycleSummaryRepository cycleSummaryRepository;
     private final CheckInService checkInService;
     private final ExerciseUnlockService exerciseUnlockService;
     private final RollingStreakService rollingStreakService;
+    private final NotificationService notificationService;
 
     @PostMapping
     public ResponseEntity<UUID> createUser(@Valid @RequestBody CreateUserRequest request) {
@@ -64,6 +67,11 @@ public class UserController {
                 ? weeklyGoalRepository.findByUserExerciseAndWeekNumber(active, active.getCurrentWeek() - 1).orElse(null)
                 : null;
 
+        WeeklyGoal currentWeekGoal = weeklyGoalRepository
+                .findByUserExerciseAndWeekNumber(active, active.getCurrentWeek())
+                .orElse(null);
+        String notificationMessage = notificationService.buildTodayNotification(active, currentWeekGoal, today);
+
         return ResponseEntity.ok(TodayMissionResponse.builder()
                 .userExerciseId(active.getId())
                 .exerciseName(active.getExercise().getName())
@@ -75,6 +83,7 @@ public class UserController {
                 .rollingSuccessCount(rollingCount)
                 .previousWeekTarget(previousWeek != null ? previousWeek.getTargetValue() : null)
                 .previousWeekSuccessDays(previousWeek != null ? previousWeek.getSuccessDays() : null)
+                .notificationMessage(notificationMessage)
                 .build());
     }
 
@@ -121,6 +130,34 @@ public class UserController {
         UserExercise active = getActiveExerciseOrThrow(user);
 
         checkInService.recordCheckIn(active, LocalDate.now(), request.getCompletedValue());
+        return ResponseEntity.ok().build();
+    }
+
+    /** 확인하지 않은 사이클 요약이 있으면 반환 — 없으면 204. 프론트는 앱 진입 시 이걸 먼저 확인한다. */
+    @GetMapping("/{userId}/cycle-summary")
+    public ResponseEntity<CycleSummaryResponse> getPendingCycleSummary(@PathVariable UUID userId) {
+        User user = getUserOrThrow(userId);
+        return cycleSummaryRepository.findFirstByUserAndAcknowledgedFalseOrderByCycleEndDateDesc(user)
+                .map(s -> ResponseEntity.ok(CycleSummaryResponse.builder()
+                        .id(s.getId())
+                        .exerciseName(s.getExerciseName())
+                        .successWeeks(s.getSuccessWeeks())
+                        .totalWeeks(s.getTotalWeeks())
+                        .outcome(s.getOutcome().name())
+                        .cycleEndDate(s.getCycleEndDate())
+                        .build()))
+                .orElse(ResponseEntity.noContent().build());
+    }
+
+    @PostMapping("/{userId}/cycle-summary/{summaryId}/ack")
+    public ResponseEntity<Void> acknowledgeCycleSummary(@PathVariable UUID userId, @PathVariable UUID summaryId) {
+        User user = getUserOrThrow(userId);
+        CycleSummary summary = cycleSummaryRepository.findById(summaryId)
+                .filter(s -> s.getUser().getId().equals(user.getId()))
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사이클 요약입니다."));
+
+        summary.setAcknowledged(true);
+        cycleSummaryRepository.save(summary);
         return ResponseEntity.ok().build();
     }
 

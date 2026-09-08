@@ -30,3 +30,6 @@ hanaman/yarn-error.log*
 
 # Claude Code local settings
 .claude/settings.local.json
+
+# 개인 메모 (커밋 안 함)
+IDEAS.md

@@ -22,4 +22,7 @@ public class TodayMissionResponse {
     // 지난주 대비 이번주 목표 조정 정보 — 1주차거나 사이클이 막 시작된 경우 null (프론트에서 안내 문구를 안 띄움)
     private Integer previousWeekTarget;
     private Integer previousWeekSuccessDays;
+
+    // 오늘의 한 줄 알림 문구 (NotificationService가 계산) — 항상 채워짐
+    private String notificationMessage;
 }

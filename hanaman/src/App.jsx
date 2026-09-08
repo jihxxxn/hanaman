@@ -1,5 +1,14 @@
 import { useEffect, useState } from "react";
-import { createUser, fetchExercises, fetchRhythm, fetchTodayMission, submitCheckIn } from "./api";
+import {
+  acknowledgeCycleSummary,
+  createUser,
+  fetchCycleSummary,
+  fetchExercises,
+  fetchRhythm,
+  fetchTodayMission,
+  startNextExercise,
+  submitCheckIn,
+} from "./api";
 
 const WEEKS_PER_CYCLE = 4;
 const RHYTHM_DAYS = 7;
@@ -162,35 +171,185 @@ function OnboardingForm({ onCreated }) {
   );
 }
 
+// 4주 사이클이 끝난 직후 한 번 보여주는 요약 화면.
+// "실패" 대신 이번 사이클을 어떻게 마무리했는지만 담백하게 알려주고,
+// 목표 조정 안내(target-note)와 같은 톤을 쓰기 위해 기존 클래스를 그대로 재사용한다.
+function CycleSummaryScreen({ summary, onConfirm, confirming, error }) {
+  const isMastered = summary.outcome === "MASTERED";
+
+  return (
+    <div className="app-shell">
+      <div className="mission-card onboarding-card">
+        <h1 className="onboarding-title">
+          {isMastered
+            ? `4주 중 ${summary.successWeeks}주 성공해서 ${summary.exerciseName}을 마스터했어요`
+            : `4주 중 ${summary.successWeeks}주 성공, 조금 더 다져볼게요`}
+        </h1>
+        <p className="onboarding-sub">
+          {isMastered
+            ? "다음 동작을 고르면 새로운 4주가 시작돼요"
+            : `${summary.exerciseName}으로 다음 4주를 이어가요. 지금까지 흐름 그대로예요.`}
+        </p>
+
+        <div className="rhythm-row" aria-label={`4주 중 ${summary.successWeeks}주 성공`}>
+          {Array.from({ length: summary.totalWeeks }).map((_, i) => (
+            <span
+              key={i}
+              className={`rhythm-day ${i < summary.successWeeks ? "exact" : "below"}`}
+            />
+          ))}
+        </div>
+
+        {error && <p className="error-text">{error}</p>}
+
+        <button className="commit-btn" onClick={onConfirm} disabled={confirming}>
+          {confirming ? "확인하는 중…" : isMastered ? "다음 동작 고르러 가기" : "확인, 이어서 하기"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// 마스터 후 다음 동작을 고르는 화면 — 온보딩의 동작 선택 단계와 같은 형태를 재사용한다.
+function ExercisePicker({ onPicked }) {
+  const [exercises, setExercises] = useState([]);
+  const [selectedId, setSelectedId] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    fetchExercises()
+      .then((list) => {
+        setExercises(list);
+        if (list.length > 0) setSelectedId(list[0].id);
+      })
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (!selectedId) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      await onPicked(selectedId);
+    } catch (err) {
+      setError(err.message);
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="app-shell">
+      <form className="mission-card onboarding-card" onSubmit={handleSubmit}>
+        <h1 className="onboarding-title">다음 동작을 골라볼까요</h1>
+        <p className="onboarding-sub">새로운 4주가 이 동작으로 시작돼요.</p>
+
+        <label className="field-label">
+          다음 동작
+          {loading ? (
+            <p className="onboarding-sub">동작 목록을 불러오는 중…</p>
+          ) : (
+            <select
+              className="field-input"
+              value={selectedId}
+              onChange={(e) => setSelectedId(e.target.value)}
+              required
+            >
+              {exercises.map((ex) => (
+                <option key={ex.id} value={ex.id}>
+                  {ex.name}
+                </option>
+              ))}
+            </select>
+          )}
+        </label>
+
+        {error && <p className="error-text">{error}</p>}
+
+        <button className="commit-btn" type="submit" disabled={submitting || loading}>
+          {submitting ? "시작하는 중…" : "이 동작으로 계속하기"}
+        </button>
+      </form>
+    </div>
+  );
+}
+
 export default function App() {
   const [userId, setUserId] = useState(() => localStorage.getItem(USER_ID_KEY));
   const [mission, setMission] = useState(null);
   const [rhythm, setRhythm] = useState([]);
+  const [cycleSummary, setCycleSummary] = useState(null);
+  const [needsExercisePick, setNeedsExercisePick] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const [completed, setCompleted] = useState(0);
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  function handleUserGone() {
+    // 저장된 계정이 서버에 더 이상 없음 (예: 개발 중 DB 초기화) — 온보딩으로 되돌아감
+    localStorage.removeItem(USER_ID_KEY);
+    setUserId(null);
+  }
+
   function loadToday(id) {
     setLoading(true);
     setError(null);
-    return Promise.all([fetchTodayMission(id), fetchRhythm(id)])
-      .then(([mission, rhythmDays]) => {
-        setMission(mission);
-        setRhythm(rhythmDays);
-        setCompleted(mission.completedValueToday);
-        setSubmitted(mission.achievedToday);
+    // 앱에 들어올 때 가장 먼저 "확인 안 한 사이클 요약"이 있는지부터 본다.
+    // 있으면 오늘의 미션보다 그 화면이 우선이라, today/rhythm은 그 다음에 불러온다.
+    return fetchCycleSummary(id)
+      .then((summary) => {
+        if (summary) {
+          setCycleSummary(summary);
+          return null;
+        }
+        setCycleSummary(null);
+        return Promise.all([fetchTodayMission(id), fetchRhythm(id)]).then(([m, rhythmDays]) => {
+          setMission(m);
+          setRhythm(rhythmDays);
+          setCompleted(m.completedValueToday);
+          setSubmitted(m.achievedToday);
+        });
       })
       .catch((err) => {
         if (err.status === 404) {
-          // 저장된 계정이 서버에 더 이상 없음 (예: 개발 중 DB 초기화) — 온보딩으로 되돌아감
-          localStorage.removeItem(USER_ID_KEY);
-          setUserId(null);
+          handleUserGone();
           return;
         }
         setError(err.message);
       })
       .finally(() => setLoading(false));
+  }
+
+  async function handleAckCycleSummary() {
+    setConfirming(true);
+    try {
+      const outcome = cycleSummary.outcome;
+      await acknowledgeCycleSummary(userId, cycleSummary.id);
+      setCycleSummary(null);
+      if (outcome === "MASTERED") {
+        setNeedsExercisePick(true);
+      } else {
+        await loadToday(userId);
+      }
+    } catch (err) {
+      if (err.status === 404) {
+        handleUserGone();
+        return;
+      }
+      setError(err.message);
+    } finally {
+      setConfirming(false);
+    }
+  }
+
+  async function handleExercisePicked(exerciseId) {
+    await startNextExercise(userId, exerciseId);
+    setNeedsExercisePick(false);
+    await loadToday(userId);
   }
 
   useEffect(() => {
@@ -205,6 +364,21 @@ export default function App() {
         }}
       />
     );
+  }
+
+  if (cycleSummary) {
+    return (
+      <CycleSummaryScreen
+        summary={cycleSummary}
+        onConfirm={handleAckCycleSummary}
+        confirming={confirming}
+        error={error}
+      />
+    );
+  }
+
+  if (needsExercisePick) {
+    return <ExercisePicker onPicked={handleExercisePicked} />;
   }
 
   if (loading && !mission) {
@@ -247,8 +421,7 @@ export default function App() {
       await loadToday(userId);
     } catch (err) {
       if (err.status === 404) {
-        localStorage.removeItem(USER_ID_KEY);
-        setUserId(null);
+        handleUserGone();
         return;
       }
       setError(err.message);
@@ -258,6 +431,10 @@ export default function App() {
   return (
     <div className="app-shell">
       <div className="mission-card">
+        {mission.notificationMessage && (
+          <div className="banner">{mission.notificationMessage}</div>
+        )}
+
         <div className="cycle-row">
           <span className="exercise-name">오늘은, {mission.exerciseName}</span>
           <div

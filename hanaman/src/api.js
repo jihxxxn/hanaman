@@ -44,3 +44,22 @@ export function submitCheckIn(userId, completedValue) {
     body: JSON.stringify({ completedValue }),
   });
 }
+
+// 확인 안 한 사이클 요약이 있으면 객체, 없으면 null (백엔드가 204를 내려줌)
+export function fetchCycleSummary(userId) {
+  return request(`/api/users/${userId}/cycle-summary`);
+}
+
+export function acknowledgeCycleSummary(userId, summaryId) {
+  return request(`/api/users/${userId}/cycle-summary/${summaryId}/ack`, {
+    method: "POST",
+  });
+}
+
+// 마스터 후 다음 동작 선택 — 응답은 새로 생성된 UserExercise의 UUID 문자열
+export function startNextExercise(userId, exerciseId) {
+  return request(`/api/users/${userId}/exercises`, {
+    method: "POST",
+    body: JSON.stringify({ exerciseId }),
+  });
+}
