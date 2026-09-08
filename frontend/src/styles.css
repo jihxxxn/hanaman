@@ -1,0 +1,244 @@
+:root {
+  --bg: #eef1ea;
+  --paper: #fbfaf5;
+  --ink: #23261f;
+  --ink-soft: #5c6152;
+  --moss: #35513b;
+  --moss-deep: #223829;
+  --ochre: #c9a227;
+  --line: #d9dccb;
+
+  --font-display: ui-serif, Georgia, "Noto Serif KR", "Nanum Myeongjo", serif;
+  --font-body: ui-sans-serif, system-ui, "Apple SD Gothic Neo", "Pretendard", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font-family: inherit;
+}
+
+.app-shell {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 20px;
+}
+
+.mission-card {
+  width: 100%;
+  max-width: 360px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+/* 상단: 사이클 진행 상황 — 4주를 4개의 잎으로 표현 (숫자 마커 대신 은유적 표현) */
+.cycle-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.exercise-name {
+  font-family: var(--font-display);
+  font-size: 15px;
+  color: var(--ink-soft);
+  letter-spacing: 0.01em;
+}
+
+.week-leaves {
+  display: flex;
+  gap: 6px;
+}
+
+.leaf {
+  width: 9px;
+  height: 9px;
+  border-radius: 60% 0;
+  background: var(--line);
+  transform: rotate(45deg);
+}
+
+.leaf.filled {
+  background: var(--moss);
+}
+
+/* 중앙: 성장 링 */
+.ring-wrap {
+  position: relative;
+  width: 260px;
+  height: 260px;
+  margin: 0 auto;
+}
+
+.ring-svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.ring-track {
+  fill: none;
+  stroke: var(--line);
+  stroke-width: 10;
+}
+
+.ring-progress {
+  fill: none;
+  stroke: var(--moss);
+  stroke-width: 10;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ring-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.ring-count {
+  font-family: var(--font-display);
+  font-size: 64px;
+  line-height: 1;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.ring-target {
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+
+/* 하단: 조작부 */
+.stepper-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+}
+
+.stepper-btn {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 1.5px solid var(--line);
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 22px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.15s ease, transform 0.1s ease;
+}
+
+.stepper-btn:hover {
+  border-color: var(--moss);
+}
+
+.stepper-btn:active {
+  transform: scale(0.94);
+}
+
+.commit-btn {
+  width: 100%;
+  padding: 16px;
+  border: none;
+  border-radius: 4px;
+  background: var(--moss);
+  color: var(--paper);
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.commit-btn:hover {
+  background: var(--moss-deep);
+}
+
+.commit-btn.done {
+  background: var(--ochre);
+  color: var(--ink);
+}
+
+.commit-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.trigger-note {
+  text-align: center;
+  font-size: 13px;
+  color: var(--ink-soft);
+  font-style: italic;
+  font-family: var(--font-display);
+}
+
+.rhythm-row {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding-top: 4px;
+  border-top: 1px solid var(--line);
+  padding-top: 18px;
+}
+
+.rhythm-day {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1.5px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: var(--ink-soft);
+}
+
+.rhythm-day.hit {
+  background: var(--moss);
+  border-color: var(--moss);
+  color: var(--paper);
+}
+
+.banner {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--ochre);
+  padding: 12px 14px;
+  font-size: 13px;
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
+
+@media (max-width: 380px) {
+  .ring-wrap {
+    width: 220px;
+    height: 220px;
+  }
+  .ring-count {
+    font-size: 52px;
+  }
+}
